@@ -104,7 +104,14 @@ git push origin v1.0.0
 如果Release创建失败，请检查：
 
 1. 确认GitHub Token权限是否足够
-2. 检查是否已存在同名Release
+2. 确保工作流配置了正确的权限（需要`contents: write`权限）
+3. 检查是否已存在同名Release
+
+如果遇到403错误，通常是权限问题。确保在工作流文件中为`create-release`作业添加了以下权限配置：
+```yaml
+permissions:
+  contents: write
+```
 
 ## 5. 最佳实践
 
