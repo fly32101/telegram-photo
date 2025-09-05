@@ -118,6 +118,11 @@ go run main.go
 .\deploy.bat
 ```
 
+这个脚本会：
+- 构建前端应用（`cd frontend && npm run build`）
+- 创建后端的静态文件目录（`mkdir backend\dist`）
+- 将前端构建产物复制到后端静态目录（`xcopy /E /Y frontend\dist\* backend\dist\`）
+
 2. 运行集成后的应用：
 
 ```bash
@@ -126,6 +131,13 @@ go run main_with_frontend.go
 ```
 
 这将启动一个包含前端静态文件的后端服务，可以通过 http://localhost:8080 访问完整应用。
+
+注意：`main_with_frontend.go`会从后端目录下的`./dist`目录加载前端静态文件，它通过以下方式提供静态资源：
+- 静态资源目录：`r.Static("/assets", "./dist/assets")`
+- 网站图标：`r.StaticFile("/favicon.ico", "./dist/favicon.ico")`
+- 前端入口文件：`c.File("./dist/index.html")`
+
+确保前端文件已正确打包到此目录，否则应用将无法正常运行。
 
 ### Docker部署
 
@@ -215,18 +227,39 @@ npm run dev
 
 ## GitHub Actions自动部署
 
-项目已配置GitHub Actions工作流，可以实现代码推送后自动构建和部署：
+项目配置了GitHub Actions自动构建工作流，可以自动构建并部署应用：
 
-1. 构建工作流（build.yml）：在代码推送到main/master分支或创建PR时自动构建前后端代码
-2. Docker构建工作流（docker.yml）：自动构建Docker镜像并推送到Docker Hub
+1. 标准构建工作流 (build.yml)：
+   - 设置Go和Node.js环境
+   - 安装前端依赖（`cd frontend && npm ci`）
+   - 构建前端（`cd frontend && npm run build`）
+   - 创建后端dist目录（`mkdir -p backend/dist`）
+   - 复制前端构建文件到后端（`cp -r frontend/dist/* backend/dist/`）
+   - 构建后端可执行文件（`cd backend && go build -o telegram-photo-server .`）
+   - 上传构建产物作为artifacts，包括：
+     - 后端可执行文件（`backend/telegram-photo-server`）
+     - 前端静态文件（`backend/dist`）
+     - 配置文件（`backend/config.yaml`）
 
-详细配置请参考项目根目录下的GITHUB_ACTIONS.md文件。
+2. 多系统构建工作流 (multi-platform-build.yml)：
+   - 在发布标签（tag）时触发
+   - 使用矩阵构建策略，同时构建Linux、Windows和macOS版本
+   - 为每个平台构建前端并打包到后端的dist目录
+   - 使用main_with_frontend.go构建后端可执行文件，确保集成前端静态文件支持
+   - 创建包含可执行文件、前端静态文件和配置文件的发布包
+   - 自动创建GitHub Release并上传所有平台的发布包
+
+3. 参考文件：
+   - GITHUB_ACTIONS.md
+   - .github/workflows/build.yml
+   - .github/workflows/multi-platform-build.yml
 
 ## 更多文档
 
 - DEPLOYMENT.md：详细的部署指南
 - FRONTEND_DEPLOYMENT.md：前端部署详细说明
 - GITHUB_ACTIONS.md：GitHub Actions配置说明
+- MULTI_PLATFORM_BUILD.md：多系统构建指南
 - APIREADME.md：API接口详细文档
 
 ## 许可证

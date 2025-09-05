@@ -1,0 +1,106 @@
+name: Multi-Platform Build and Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+jobs:
+  build:
+    name: Build for ${{ matrix.os }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-latest]
+        include:
+          - os: ubuntu-latest
+            output_name: telegram-photo-server-linux
+            asset_name: telegram-photo-server-linux
+          - os: windows-latest
+            output_name: telegram-photo-server-windows.exe
+            asset_name: telegram-photo-server-windows
+          - os: macos-latest
+            output_name: telegram-photo-server-macos
+            asset_name: telegram-photo-server-macos
+
+    steps:
+    - uses: actions/checkout@v3
+
+    - name: Set up Go
+      uses: actions/setup-go@v4
+      with:
+        go-version: '1.20'
+
+    - name: Set up Node.js
+      uses: actions/setup-node@v3
+      with:
+        node-version: '18'
+        cache: 'npm'
+        cache-dependency-path: frontend/package-lock.json
+
+    - name: Install frontend dependencies
+      run: cd frontend && npm ci
+
+    - name: Build frontend
+      run: cd frontend && npm run build
+
+    - name: Create dist directory
+      run: |
+        mkdir -p backend/dist
+      shell: bash
+
+    - name: Copy frontend build to dist directory
+      run: |
+        cp -r frontend/dist/* backend/dist/
+      shell: bash
+
+    - name: Build backend (Linux/macOS)
+      if: matrix.os != 'windows-latest'
+      run: cd backend && go build -o ${{ matrix.output_name }} -ldflags="-s -w" main_with_frontend.go
+
+    - name: Build backend (Windows)
+      if: matrix.os == 'windows-latest'
+      run: cd backend && go build -o ${{ matrix.output_name }} -ldflags="-s -w" main_with_frontend.go
+
+    - name: Create release package
+      run: |
+        mkdir -p release
+        cp backend/${{ matrix.output_name }} release/
+        cp -r backend/dist release/
+        cp backend/config.yaml release/
+      shell: bash
+
+    - name: Archive release package
+      uses: actions/upload-artifact@v3
+      with:
+        name: ${{ matrix.asset_name }}
+        path: release
+
+  create-release:
+    name: Create Release
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - name: Download all artifacts
+        uses: actions/download-artifact@v3
+        with:
+          path: artifacts
+
+      - name: Create release packages
+        run: |
+          cd artifacts
+          for dir in */; do
+            dir_name=${dir%/}
+            zip -r "${dir_name}.zip" "$dir_name"
+          done
+        shell: bash
+
+      - name: Create Release
+        uses: softprops/action-gh-release@v1
+        with:
+          files: |
+            artifacts/*.zip
+          draft: false
+          prerelease: false
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
