@@ -41,7 +41,7 @@ jobs:
       run: cd backend && go build -o telegram-photo-server .
 
     - name: Upload artifact
-      uses: actions/upload-artifact@v3
+      uses: actions/upload-artifact@v4
       with:
         name: telegram-photo
         path: |

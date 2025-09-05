@@ -37,6 +37,13 @@
 - 使用main_with_frontend.go作为入口文件，确保后端可以正确加载前端静态文件
 - 使用-ldflags="-s -w"减小可执行文件大小（去除调试信息和符号表）
 
+### 1.6 工作流最佳实践
+
+工作流配置采用了以下最佳实践：
+- 使用最新的GitHub Actions组件版本（如actions/upload-artifact@v4和actions/download-artifact@v4）
+- 使用矩阵构建策略，提高构建效率
+- 针对不同操作系统使用条件执行（if条件）
+
 ## 2. 使用方法
 
 ### 2.1 创建发布标签
