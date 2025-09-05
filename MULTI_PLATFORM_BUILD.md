@@ -43,6 +43,7 @@
 - 使用最新的GitHub Actions组件版本（如actions/upload-artifact@v4和actions/download-artifact@v4）
 - 使用矩阵构建策略，提高构建效率
 - 针对不同操作系统使用条件执行（if条件）
+- 使用标准Go版本格式（1.21而非1.21.0）以确保兼容性
 
 ## 2. 使用方法
 
