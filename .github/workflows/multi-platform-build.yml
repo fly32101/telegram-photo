@@ -70,7 +70,6 @@ jobs:
         mkdir -p release
         cp backend/${{ matrix.output_name }} release/
         cp -r backend/dist release/
-        cp backend/config.yaml release/
       shell: bash
 
     - name: Archive release package
