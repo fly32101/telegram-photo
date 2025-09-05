@@ -37,6 +37,7 @@ type Image struct {
 	FileID    string    `gorm:"size:255;not null;uniqueIndex" json:"file_id"`
 	UserID    string    `gorm:"size:100;not null;index" json:"user_id"`
 	UploadIP  string    `gorm:"size:50" json:"upload_ip"`
+	MD5Hash   string    `gorm:"size:32;uniqueIndex" json:"md5_hash"`
 	CreatedAt time.Time `json:"created_at"`
 	UpdatedAt time.Time `json:"updated_at"`
 }
@@ -50,6 +51,16 @@ func CreateImage(image *Image) error {
 func GetImageByFileID(fileID string) (*Image, error) {
 	var image Image
 	err := DB.Where("file_id = ?", fileID).First(&image).Error
+	if err != nil {
+		return nil, err
+	}
+	return &image, nil
+}
+
+// GetImageByMD5Hash 根据MD5哈希获取图片
+func GetImageByMD5Hash(md5Hash string) (*Image, error) {
+	var image Image
+	err := DB.Where("md5_hash = ?", md5Hash).First(&image).Error
 	if err != nil {
 		return nil, err
 	}

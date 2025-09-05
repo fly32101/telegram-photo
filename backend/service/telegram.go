@@ -59,7 +59,7 @@ type File struct {
 }
 
 // UploadImageToTelegram 上传图片到Telegram
-func UploadImageToTelegram(file multipart.File, filename string) (string, error) {
+func UploadImageToTelegram(file io.Reader, filename string) (string, error) {
 	// 获取配置
 	botToken := viper.GetString("telegram.bot_token")
 	chatID := viper.GetString("telegram.chat_id")

@@ -22,7 +22,7 @@ GET /api/v1/auth/github
 }
 ```
 
-### GitHub 授权回调 【这个打开弹窗登录，登陆完刷新当前页面】
+### GitHub 授权回调
 
 ```
 GET /api/v1/auth/github/callback?code={code}
@@ -40,6 +40,33 @@ GET /api/v1/auth/github/callback?code={code}
   "user_id": "github_user_id",
   "redirect_url": "http://localhost:3000/auth/callback?token=xxx&user_id=xxx"
 }
+```
+
+### 获取当前用户信息 (需要认证)
+
+```
+GET /api/v1/auth/user
+```
+
+**请求头:**
+
+```
+Authorization: Bearer {token}
+```
+
+**响应示例:**
+
+```json
+{
+  "user": {
+    "id": 1,
+    "github_id": "github_user_id",
+    "username": "github_username",
+    "created_at": "2023-07-01T12:00:00Z",
+    "updated_at": "2023-07-01T12:00:00Z"
+  }
+}
+```
 ```
 
 ## 图片相关 (需要认证)
@@ -63,11 +90,25 @@ Content-Type: multipart/form-data
 
 **响应示例:**
 
+**新上传:**
 ```json
 {
   "message": "上传成功",
   "file_id": "telegram_file_id",
-  "proxy_url": "http://localhost:8080/proxy/image/telegram_file_id"
+  "proxy_url": "http://localhost:8080/proxy/image/telegram_file_id",
+  "md5_hash": "d41d8cd98f00b204e9800998ecf8427e",
+  "existing": false
+}
+```
+
+**重复图片:**
+```json
+{
+  "message": "图片已存在",
+  "file_id": "existing_telegram_file_id",
+  "proxy_url": "http://localhost:8080/proxy/image/existing_telegram_file_id",
+  "md5_hash": "d41d8cd98f00b204e9800998ecf8427e",
+  "existing": true
 }
 ```
 

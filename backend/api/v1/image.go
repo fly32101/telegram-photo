@@ -1,6 +1,8 @@
 package v1
 
 import (
+	"bytes"
+	"crypto/md5"
 	"fmt"
 	"io"
 	"net/http"
@@ -37,8 +39,36 @@ func uploadImage(c *gin.Context) {
 		return
 	}
 
+	// 读取文件内容用于计算MD5和上传
+	fileBytes, err := io.ReadAll(file)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": fmt.Sprintf("读取文件失败: %v", err)})
+		return
+	}
+
+	// 计算MD5哈希
+	hash := md5.Sum(fileBytes)
+	md5Hash := fmt.Sprintf("%x", hash)
+
+	// 检查是否已存在相同MD5的图片
+	existingImage, err := model.GetImageByMD5Hash(md5Hash)
+	if err == nil && existingImage != nil {
+		// 找到重复图片，直接返回现有记录
+		c.JSON(http.StatusOK, gin.H{
+			"message":   "图片已存在",
+			"file_id":   existingImage.FileID,
+			"proxy_url": fmt.Sprintf("%s://%s/proxy/image/%s", c.Request.URL.Scheme, c.Request.Host, existingImage.FileID),
+			"md5_hash":  md5Hash,
+			"existing":  true,
+		})
+		return
+	}
+
+	// 创建新的reader用于上传
+	uploadReader := bytes.NewReader(fileBytes)
+
 	// 上传到Telegram
-	fileID, err := service.UploadImageToTelegram(file, header.Filename)
+	fileID, err := service.UploadImageToTelegram(uploadReader, header.Filename)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": fmt.Sprintf("上传图片失败: %v", err)})
 		return
@@ -49,6 +79,7 @@ func uploadImage(c *gin.Context) {
 		FileID:   fileID,
 		UserID:   userID,
 		UploadIP: uploadIP,
+		MD5Hash:  md5Hash,
 	}
 
 	if err := model.CreateImage(image); err != nil {
@@ -61,6 +92,8 @@ func uploadImage(c *gin.Context) {
 		"message":   "上传成功",
 		"file_id":   fileID,
 		"proxy_url": fmt.Sprintf("%s://%s/proxy/image/%s", c.Request.URL.Scheme, c.Request.Host, fileID),
+		"md5_hash":  md5Hash,
+		"existing":  false,
 	})
 }
 
@@ -84,6 +117,13 @@ func listImages(c *gin.Context) {
 		return
 	}
 
+	var scheme string
+	if c.Request.TLS != nil {
+		scheme = "https"
+	} else {
+		scheme = "http"
+	}
+
 	// 构建返回结果
 	result := make([]map[string]interface{}, 0, len(images))
 	for _, img := range images {
@@ -91,7 +131,7 @@ func listImages(c *gin.Context) {
 			"id":         img.ID,
 			"file_id":    img.FileID,
 			"created_at": img.CreatedAt,
-			"proxy_url":  fmt.Sprintf("%s/proxy/image/%s", c.Request.Host, img.FileID),
+			"proxy_url":  fmt.Sprintf("%s://%s/proxy/image/%s", scheme, c.Request.Host, img.FileID),
 		})
 	}
 

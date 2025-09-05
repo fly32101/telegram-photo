@@ -6,12 +6,12 @@ import (
 
 // User 用户模型
 type User struct {
-	ID        uint      `gorm:"primaryKey" json:"id"`
-	GitHubID  string    `gorm:"size:100;not null;uniqueIndex" json:"github_id"`
-	Username  string    `gorm:"size:100" json:"username"`
-	LastLogin time.Time `json:"last_login"`
-	CreatedAt time.Time `json:"created_at"`
-	UpdatedAt time.Time `json:"updated_at"`
+	ID        uint      `gorm:"primaryKey;column:id" json:"id"`
+	GitHubID  string    `gorm:"column:github_id;size:100;not null;uniqueIndex" json:"github_id"`
+	Username  string    `gorm:"column:username;size:100" json:"username"`
+	LastLogin time.Time `gorm:"column:last_login" json:"last_login"`
+	CreatedAt time.Time `gorm:"column:created_at" json:"created_at"`
+	UpdatedAt time.Time `gorm:"column:updated_at" json:"updated_at"`
 }
 
 // CreateOrUpdateUser 创建或更新用户
@@ -19,7 +19,7 @@ func CreateOrUpdateUser(githubID string, username string) (*User, error) {
 	var user User
 
 	// 查找用户
-	result := DB.Where("git_hub_id = ?", githubID).First(&user)
+	result := DB.Where("github_id = ?", githubID).First(&user)
 
 	// 如果用户不存在，创建新用户
 	if result.Error != nil {

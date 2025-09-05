@@ -15,6 +15,7 @@ func RegisterRoutes(r *gin.Engine) {
 	{
 		auth.GET("/github", redirectToGitHub)
 		auth.GET("/github/callback", githubCallback)
+		auth.GET("/user", middleware.JWTAuth(), getCurrentUser)
 	}
 
 	// 图片相关路由（需要认证）

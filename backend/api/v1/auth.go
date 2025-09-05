@@ -203,3 +203,37 @@ func generateJWT(userID string) (string, error) {
 
 	return tokenString, nil
 }
+
+// getCurrentUser 获取当前用户信息
+func getCurrentUser(c *gin.Context) {
+	// 从上下文中获取用户ID
+	userID, exists := c.Get("user_id")
+	if !exists {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "用户未认证"})
+		return
+	}
+
+	fmt.Printf("Getting user info for GitHub ID: %s\n", userID)
+
+	// 查询用户信息
+	user, err := model.GetUserByGitHubID(userID.(string))
+	if err != nil {
+		fmt.Printf("Error getting user by GitHub ID %s: %v\n", userID, err)
+		c.JSON(http.StatusNotFound, gin.H{"error": "用户不存在"})
+		return
+	}
+
+	fmt.Printf("Found user: %+v\n", user)
+
+	// 返回用户信息
+	c.JSON(http.StatusOK, gin.H{
+		"user": gin.H{
+			"id":         user.ID,
+			"github_id":  user.GitHubID,
+			"username":   user.Username,
+			"last_login": user.LastLogin,
+			"created_at": user.CreatedAt,
+			"updated_at": user.UpdatedAt,
+		},
+	})
+}
