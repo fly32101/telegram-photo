@@ -44,14 +44,8 @@ func TrustProxyHeaders() gin.HandlerFunc {
 		log.Printf("[IP调试] 原始RemoteAddr: %s, X-Real-IP: %s, X-Forwarded-For: %s", 
 			originalRemoteAddr, xRealIP, xForwardedFor)
 		
-		// 直接修改请求的RemoteAddr为X-Real-IP的值（如果存在）
-		if xRealIP != "" {
-			// 确保IP格式正确
-			if net.ParseIP(xRealIP) != nil {
-				c.Request.RemoteAddr = xRealIP
-				log.Printf("[IP调试] 使用X-Real-IP设置RemoteAddr: %s", xRealIP)
-			}
-		} else if xForwardedFor != "" {
+		// 优先使用X-Forwarded-For的第一个IP
+		if xForwardedFor != "" {
 			// 如果有多个IP，取第一个（最原始的客户端IP）
 			ips := strings.Split(xForwardedFor, ",")
 			if len(ips) > 0 {
@@ -61,6 +55,12 @@ func TrustProxyHeaders() gin.HandlerFunc {
 					c.Request.RemoteAddr = ip
 					log.Printf("[IP调试] 使用X-Forwarded-For设置RemoteAddr: %s", ip)
 				}
+			}
+		} else if xRealIP != "" {
+			// 确保IP格式正确
+			if net.ParseIP(xRealIP) != nil {
+				c.Request.RemoteAddr = xRealIP
+				log.Printf("[IP调试] 使用X-Real-IP设置RemoteAddr: %s", xRealIP)
 			}
 		}
 		

@@ -51,13 +51,7 @@ func getRealIP(c *gin.Context) string {
 	log.Printf("[getRealIP] RemoteAddr: %s, X-Real-IP: %s, X-Forwarded-For: %s, ClientIP(): %s", 
 		remoteAddr, xRealIP, xForwardedFor, clientIP)
 	
-	// 优先使用X-Real-IP，这是Nginx设置的
-	if xRealIP != "" && net.ParseIP(xRealIP) != nil {
-		log.Printf("[getRealIP] 使用X-Real-IP: %s", xRealIP)
-		return xRealIP
-	}
-	
-	// 其次使用X-Forwarded-For的第一个IP
+	// 优先使用X-Forwarded-For的第一个IP
 	if xForwardedFor != "" {
 		ips := strings.Split(xForwardedFor, ",")
 		if len(ips) > 0 {
@@ -67,6 +61,12 @@ func getRealIP(c *gin.Context) string {
 				return ip
 			}
 		}
+	}
+	
+	// 其次使用X-Real-IP
+	if xRealIP != "" && net.ParseIP(xRealIP) != nil {
+		log.Printf("[getRealIP] 使用X-Real-IP: %s", xRealIP)
+		return xRealIP
 	}
 	
 	// 使用Gin的ClientIP()方法
