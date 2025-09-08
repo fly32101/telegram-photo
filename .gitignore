@@ -1,6 +1,7 @@
 # Go backend
 /backend/tmp/
 /backend/vendor/
+/backend/dist/
 *.exe
 *.exe~
 *.dll
