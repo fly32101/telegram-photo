@@ -44,6 +44,15 @@ jobs:
     - name: Install frontend dependencies
       run: cd frontend && npm ci
 
+    - name: Create .env.production file
+      run: |
+        echo "# 生产环境配置" > frontend/.env.production
+        echo "# API基础路径，使用相对路径" >> frontend/.env.production
+        echo "VITE_API_BASE=/" >> frontend/.env.production
+        echo "# 代理路径，使用相对路径" >> frontend/.env.production
+        echo "VITE_PROXY_BASE=/" >> frontend/.env.production
+      shell: bash
+
     - name: Build frontend
       run: cd frontend && npm run build
 
