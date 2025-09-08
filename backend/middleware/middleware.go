@@ -37,8 +37,17 @@ func TrustProxyHeaders() gin.HandlerFunc {
 		// 设置信任所有代理
 		// 这样Gin的c.ClientIP()会正确处理X-Forwarded-For和X-Real-IP头
 		// 注意：在生产环境中，应该只信任特定的代理
-		c.Request.Header.Set("X-Forwarded-For", c.Request.Header.Get("X-Forwarded-For"))
-		c.Request.Header.Set("X-Real-IP", c.Request.Header.Get("X-Real-IP"))
+		
+		// 直接修改请求的RemoteAddr为X-Real-IP的值（如果存在）
+		if realIP := c.Request.Header.Get("X-Real-IP"); realIP != "" {
+			c.Request.RemoteAddr = realIP
+		} else if forwardedFor := c.Request.Header.Get("X-Forwarded-For"); forwardedFor != "" {
+			// 如果有多个IP，取第一个（最原始的客户端IP）
+			ips := strings.Split(forwardedFor, ",")
+			if len(ips) > 0 {
+				c.Request.RemoteAddr = strings.TrimSpace(ips[0])
+			}
+		}
 		
 		c.Next()
 	}
