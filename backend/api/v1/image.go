@@ -14,6 +14,30 @@ import (
 	"github.com/telegram-photo/service"
 )
 
+// getScheme 获取请求协议
+func getScheme(c *gin.Context) string {
+	scheme := c.Request.URL.Scheme
+	if scheme == "" {
+		// 检查反向代理头
+		if proto := c.Request.Header.Get("X-Forwarded-Proto"); proto != "" {
+			scheme = proto
+		} else if c.Request.Header.Get("X-Forwarded-Protocol") == "https" {
+			scheme = "https"
+		} else if c.Request.Header.Get("X-Forwarded-Ssl") == "on" {
+			scheme = "https"
+		} else if c.Request.Header.Get("X-Url-Scheme") != "" {
+			scheme = c.Request.Header.Get("X-Url-Scheme")
+		} else if c.Request.TLS != nil {
+			// 直接判断是否为HTTPS连接
+			scheme = "https"
+		} else {
+			// 默认使用http
+			scheme = "http"
+		}
+	}
+	return scheme
+}
+
 // uploadImage 上传图片
 func uploadImage(c *gin.Context) {
 	// 获取用户ID
@@ -57,20 +81,6 @@ func uploadImage(c *gin.Context) {
 	var telegramFileID string
 	var isExisting bool
 
-	scheme := c.Request.URL.Scheme
-	if scheme == "" {
-		// 检查反向代理头
-		if proto := c.Request.Header.Get("X-Forwarded-Proto"); proto != "" {
-			scheme = proto
-		} else if c.Request.TLS != nil {
-			// 直接判断是否为HTTPS连接
-			scheme = "https"
-		} else {
-			// 默认使用http
-			scheme = "http"
-		}
-	}
-
 	if err == nil && existingFile != nil {
 		// 文件已存在，检查用户是否已绑定该文件
 		existingImage, err := model.GetImageByFileIDAndUserID(existingFile.ID, userID)
@@ -79,7 +89,7 @@ func uploadImage(c *gin.Context) {
 			c.JSON(http.StatusOK, gin.H{
 				"message":   "图片已存在",
 				"file_id":   existingFile.TelegramFileID,
-				"proxy_url": fmt.Sprintf("%s://%s/proxy/image/%s", scheme, c.Request.Host, existingFile.TelegramFileID),
+				"proxy_url": fmt.Sprintf("%s://%s/proxy/image/%s", getScheme(c), c.Request.Host, existingFile.TelegramFileID),
 				"md5_hash":  md5Hash,
 				"existing":  true,
 			})
@@ -139,7 +149,7 @@ func uploadImage(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{
 		"message":   "上传成功",
 		"file_id":   telegramFileID,
-		"proxy_url": fmt.Sprintf("%s://%s/proxy/image/%s", scheme, c.Request.Host, telegramFileID),
+		"proxy_url": fmt.Sprintf("%s://%s/proxy/image/%s", getScheme(c), c.Request.Host, telegramFileID),
 		"md5_hash":  md5Hash,
 		"existing":  isExisting,
 	})
@@ -197,7 +207,7 @@ func listImages(c *gin.Context) {
 			"file_id":    file.TelegramFileID,
 			"md5_hash":   file.MD5Hash,
 			"created_at": img.CreatedAt,
-			"proxy_url":  fmt.Sprintf("%s://%s/proxy/image/%s", scheme, c.Request.Host, file.TelegramFileID),
+			"proxy_url":  fmt.Sprintf("%s://%s/proxy/image/%s", getScheme(c), c.Request.Host, file.TelegramFileID),
 		})
 	}
 
@@ -334,7 +344,7 @@ func adminListImages(c *gin.Context) {
 			"upload_ip":  img.UploadIP,
 			"md5_hash":   file.MD5Hash,
 			"created_at": img.CreatedAt,
-			"proxy_url":  fmt.Sprintf("%s://%s/proxy/image/%s", c.Request.URL.Scheme, c.Request.Host, file.TelegramFileID),
+			"proxy_url":  fmt.Sprintf("%s://%s/proxy/image/%s", getScheme(c), c.Request.Host, file.TelegramFileID),
 		})
 	}
 
