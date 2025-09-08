@@ -5,6 +5,7 @@ import (
 	"crypto/md5"
 	"fmt"
 	"io"
+	"net"
 	"net/http"
 	"strconv"
 	"strings"
@@ -38,6 +39,42 @@ func getScheme(c *gin.Context) string {
 	return scheme
 }
 
+// 获取用户真实IP，考虑CDN等代理情况
+func getRealIP(c *gin.Context) string {
+	// 尝试从常见的代理头中获取
+	ipHeaders := []string{
+		"X-Real-IP",
+		"X-Forwarded-For",
+		"Proxy-Client-IP",
+		"WL-Proxy-Client-IP",
+		"HTTP_CLIENT_IP",
+		"HTTP_X_FORWARDED_FOR",
+	}
+
+	for _, header := range ipHeaders {
+		ip := c.Request.Header.Get(header)
+		if ip != "" {
+			// X-Forwarded-For可能包含多个IP，取第一个
+			if header == "X-Forwarded-For" {
+				ips := strings.Split(ip, ",")
+				ip = strings.TrimSpace(ips[0])
+			}
+
+			// 验证IP格式是否有效
+			if net.ParseIP(ip) != nil {
+				return ip
+			}
+		}
+	}
+
+	// 如果上面的头都没有，使用RemoteAddr
+	ip, _, err := net.SplitHostPort(c.Request.RemoteAddr)
+	if err != nil {
+		return c.Request.RemoteAddr
+	}
+	return ip
+}
+
 // uploadImage 上传图片
 func uploadImage(c *gin.Context) {
 	// 获取用户ID
@@ -48,7 +85,7 @@ func uploadImage(c *gin.Context) {
 	}
 
 	// 获取客户端IP
-	uploadIP := c.ClientIP()
+	uploadIP := getRealIP(c)
 	// 如果uploadIP为空，尝试从其他头部获取
 	if uploadIP == "" || uploadIP == "::1" || uploadIP == "127.0.0.1" {
 		if xRealIP := c.Request.Header.Get("X-Real-IP"); xRealIP != "" {
@@ -71,8 +108,8 @@ func uploadImage(c *gin.Context) {
 	xRealIP := c.Request.Header.Get("X-Real-IP")
 	xForwardedFor := c.Request.Header.Get("X-Forwarded-For")
 	remoteAddr := c.Request.RemoteAddr
-	
-	fmt.Printf("上传请求 - 用户ID: %s, ClientIP: %s, 最终使用的IP: %s, X-Real-IP: %s, X-Forwarded-For: %s, RemoteAddr: %s\n", 
+
+	fmt.Printf("上传请求 - 用户ID: %s, ClientIP: %s, 最终使用的IP: %s, X-Real-IP: %s, X-Forwarded-For: %s, RemoteAddr: %s\n",
 		userID, c.ClientIP(), uploadIP, xRealIP, xForwardedFor, remoteAddr)
 
 	// 获取上传的文件
