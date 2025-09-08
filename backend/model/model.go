@@ -22,24 +22,67 @@ func Init() error {
 		return fmt.Errorf("连接数据库失败: %w", err)
 	}
 
-	// 自动迁移表结构
-	err = DB.AutoMigrate(&Image{}, &User{})
+	// 执行AutoMigrate
+	err = DB.AutoMigrate(&File{}, &Image{}, &User{})
 	if err != nil {
 		return fmt.Errorf("迁移数据表失败: %w", err)
 	}
-
 	return nil
+}
+
+// File 文件模型
+type File struct {
+	ID             uint      `gorm:"primaryKey" json:"id"`
+	TelegramFileID string    `gorm:"size:255;not null;uniqueIndex" json:"telegram_file_id"`
+	MD5Hash        string    `gorm:"size:32;uniqueIndex" json:"md5_hash"`
+	CreatedAt      time.Time `json:"created_at"`
+	UpdatedAt      time.Time `json:"updated_at"`
 }
 
 // Image 图片模型
 type Image struct {
 	ID        uint      `gorm:"primaryKey" json:"id"`
-	FileID    string    `gorm:"size:255;not null;uniqueIndex" json:"file_id"`
+	FileID    uint      `gorm:"not null;index" json:"file_id"`
+	File      File      `gorm:json:"file"`
 	UserID    string    `gorm:"size:100;not null;index" json:"user_id"`
 	UploadIP  string    `gorm:"size:50" json:"upload_ip"`
-	MD5Hash   string    `gorm:"size:32;uniqueIndex" json:"md5_hash"`
 	CreatedAt time.Time `json:"created_at"`
 	UpdatedAt time.Time `json:"updated_at"`
+}
+
+// CreateFile 创建文件记录
+func CreateFile(file *File) error {
+	return DB.Create(file).Error
+}
+
+// GetFileByID 根据ID获取文件
+func GetFileByID(id uint) (*File, error) {
+	var file File
+	err := DB.Where("id = ?", id).First(&file).Error
+	if err != nil {
+		return nil, err
+	}
+	return &file, nil
+}
+
+// GetFileByMD5Hash 根据MD5哈希获取文件
+func GetFileByMD5Hash(md5Hash string) (*File, error) {
+	var file File
+	err := DB.Where("md5_hash = ?", md5Hash).First(&file).Error
+	if err != nil {
+		return nil, err
+	}
+	return &file, nil
+}
+
+// GetFileByTelegramFileID 根据TelegramFileID获取文件
+func GetFileByTelegramFileID(telegramFileID string) (*File, error) {
+	var file File
+	err := DB.Where("telegram_file_id = ?", telegramFileID).First(&file).Error
+	if err != nil {
+		return nil, err
+	}
+	return &file, nil
 }
 
 // CreateImage 创建图片记录
@@ -47,20 +90,10 @@ func CreateImage(image *Image) error {
 	return DB.Create(image).Error
 }
 
-// GetImageByFileID 根据FileID获取图片
-func GetImageByFileID(fileID string) (*Image, error) {
+// GetImageByFileIDAndUserID 根据FileID和UserID获取图片
+func GetImageByFileIDAndUserID(fileID uint, userID string) (*Image, error) {
 	var image Image
-	err := DB.Where("file_id = ?", fileID).First(&image).Error
-	if err != nil {
-		return nil, err
-	}
-	return &image, nil
-}
-
-// GetImageByMD5Hash 根据MD5哈希获取图片
-func GetImageByMD5Hash(md5Hash string) (*Image, error) {
-	var image Image
-	err := DB.Where("md5_hash = ?", md5Hash).First(&image).Error
+	err := DB.Where("file_id = ? AND user_id = ?", fileID, userID).First(&image).Error
 	if err != nil {
 		return nil, err
 	}
@@ -70,7 +103,7 @@ func GetImageByMD5Hash(md5Hash string) (*Image, error) {
 // GetImageByID 根据ID获取图片
 func GetImageByID(id uint) (*Image, error) {
 	var image Image
-	err := DB.First(&image, id).Error
+	err := DB.Preload("File").First(&image, id).Error
 	if err != nil {
 		return nil, err
 	}
@@ -86,7 +119,7 @@ func GetImagesByUserID(userID string, page, pageSize int) ([]Image, int64, error
 	DB.Model(&Image{}).Where("user_id = ?", userID).Count(&total)
 
 	// 分页查询
-	err := DB.Where("user_id = ?", userID).
+	err := DB.Preload("File").Where("user_id = ?", userID).
 		Offset((page - 1) * pageSize).
 		Limit(pageSize).
 		Order("created_at DESC").
@@ -123,7 +156,7 @@ func GetImagesWithFilter(userID, uploadIP string, page, pageSize int) ([]Image, 
 	query.Count(&total)
 
 	// 分页查询
-	err := query.Offset((page - 1) * pageSize).
+	err := query.Preload("File").Offset((page - 1) * pageSize).
 		Limit(pageSize).
 		Order("created_at DESC").
 		Find(&images).Error
