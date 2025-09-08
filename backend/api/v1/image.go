@@ -86,24 +86,6 @@ func uploadImage(c *gin.Context) {
 
 	// 获取客户端IP
 	uploadIP := getRealIP(c)
-	// 如果uploadIP为空，尝试从其他头部获取
-	if uploadIP == "" || uploadIP == "::1" || uploadIP == "127.0.0.1" {
-		if xRealIP := c.Request.Header.Get("X-Real-IP"); xRealIP != "" {
-			uploadIP = xRealIP
-		} else if xForwardedFor := c.Request.Header.Get("X-Forwarded-For"); xForwardedFor != "" {
-			ips := strings.Split(xForwardedFor, ",")
-			if len(ips) > 0 {
-				uploadIP = strings.TrimSpace(ips[0])
-			}
-		} else {
-			uploadIP = c.Request.RemoteAddr
-			// 移除端口号
-			if idx := strings.LastIndex(uploadIP, ":"); idx != -1 {
-				uploadIP = uploadIP[:idx]
-			}
-		}
-	}
-
 	// 记录请求头信息，用于调试
 	xRealIP := c.Request.Header.Get("X-Real-IP")
 	xForwardedFor := c.Request.Header.Get("X-Forwarded-For")
