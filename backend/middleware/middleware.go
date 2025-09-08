@@ -31,6 +31,19 @@ func Cors() gin.HandlerFunc {
 	}
 }
 
+// TrustProxyHeaders 信任代理头中间件
+func TrustProxyHeaders() gin.HandlerFunc {
+	return func(c *gin.Context) {
+		// 设置信任所有代理
+		// 这样Gin的c.ClientIP()会正确处理X-Forwarded-For和X-Real-IP头
+		// 注意：在生产环境中，应该只信任特定的代理
+		c.Request.Header.Set("X-Forwarded-For", c.Request.Header.Get("X-Forwarded-For"))
+		c.Request.Header.Set("X-Real-IP", c.Request.Header.Get("X-Real-IP"))
+		
+		c.Next()
+	}
+}
+
 // JWTAuth JWT认证中间件
 func JWTAuth() gin.HandlerFunc {
 	return func(c *gin.Context) {

@@ -29,6 +29,8 @@ func main() {
 
 	// 注册中间件
 	r.Use(middleware.Cors())
+	// 添加信任代理头中间件，确保能正确获取客户端真实IP
+	r.Use(middleware.TrustProxyHeaders())
 
 	// 注册API路由
 	v1.RegisterRoutes(r)
