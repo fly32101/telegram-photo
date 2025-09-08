@@ -49,6 +49,31 @@ func uploadImage(c *gin.Context) {
 
 	// 获取客户端IP
 	uploadIP := c.ClientIP()
+	// 如果uploadIP为空，尝试从其他头部获取
+	if uploadIP == "" || uploadIP == "::1" || uploadIP == "127.0.0.1" {
+		if xRealIP := c.Request.Header.Get("X-Real-IP"); xRealIP != "" {
+			uploadIP = xRealIP
+		} else if xForwardedFor := c.Request.Header.Get("X-Forwarded-For"); xForwardedFor != "" {
+			ips := strings.Split(xForwardedFor, ",")
+			if len(ips) > 0 {
+				uploadIP = strings.TrimSpace(ips[0])
+			}
+		} else {
+			uploadIP = c.Request.RemoteAddr
+			// 移除端口号
+			if idx := strings.LastIndex(uploadIP, ":"); idx != -1 {
+				uploadIP = uploadIP[:idx]
+			}
+		}
+	}
+
+	// 记录请求头信息，用于调试
+	xRealIP := c.Request.Header.Get("X-Real-IP")
+	xForwardedFor := c.Request.Header.Get("X-Forwarded-For")
+	remoteAddr := c.Request.RemoteAddr
+	
+	fmt.Printf("上传请求 - 用户ID: %s, ClientIP: %s, 最终使用的IP: %s, X-Real-IP: %s, X-Forwarded-For: %s, RemoteAddr: %s\n", 
+		userID, c.ClientIP(), uploadIP, xRealIP, xForwardedFor, remoteAddr)
 
 	// 获取上传的文件
 	file, header, err := c.Request.FormFile("image")
@@ -140,6 +165,13 @@ func uploadImage(c *gin.Context) {
 		UploadIP: uploadIP,
 	}
 
+	// 确保uploadIP不为空
+	if image.UploadIP == "" {
+		image.UploadIP = "unknown"
+	}
+
+	fmt.Printf("保存到数据库的IP: %s\n", image.UploadIP)
+
 	if err := model.CreateImage(image); err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": fmt.Sprintf("保存图片记录失败: %v", err)})
 		return
@@ -152,6 +184,7 @@ func uploadImage(c *gin.Context) {
 		"proxy_url": fmt.Sprintf("%s://%s/proxy/image/%s", getScheme(c), c.Request.Host, telegramFileID),
 		"md5_hash":  md5Hash,
 		"existing":  isExisting,
+		"upload_ip": uploadIP,
 	})
 }
 
