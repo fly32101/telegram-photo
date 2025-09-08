@@ -5,6 +5,7 @@ import (
 	"crypto/md5"
 	"fmt"
 	"io"
+	"log"
 	"net"
 	"net/http"
 	"strconv"
@@ -41,37 +42,46 @@ func getScheme(c *gin.Context) string {
 
 // 获取用户真实IP，考虑CDN等代理情况
 func getRealIP(c *gin.Context) string {
-	// 尝试从常见的代理头中获取
-	ipHeaders := []string{
-		"X-Real-IP",
-		"X-Forwarded-For",
-		"Proxy-Client-IP",
-		"WL-Proxy-Client-IP",
-		"HTTP_CLIENT_IP",
-		"HTTP_X_FORWARDED_FOR",
+	// 记录所有IP相关信息，用于调试
+	remoteAddr := c.Request.RemoteAddr
+	xRealIP := c.Request.Header.Get("X-Real-IP")
+	xForwardedFor := c.Request.Header.Get("X-Forwarded-For")
+	clientIP := c.ClientIP()
+	
+	log.Printf("[getRealIP] RemoteAddr: %s, X-Real-IP: %s, X-Forwarded-For: %s, ClientIP(): %s", 
+		remoteAddr, xRealIP, xForwardedFor, clientIP)
+	
+	// 优先使用X-Real-IP，这是Nginx设置的
+	if xRealIP != "" && net.ParseIP(xRealIP) != nil {
+		log.Printf("[getRealIP] 使用X-Real-IP: %s", xRealIP)
+		return xRealIP
 	}
-
-	for _, header := range ipHeaders {
-		ip := c.Request.Header.Get(header)
-		if ip != "" {
-			// X-Forwarded-For可能包含多个IP，取第一个
-			if header == "X-Forwarded-For" {
-				ips := strings.Split(ip, ",")
-				ip = strings.TrimSpace(ips[0])
-			}
-
-			// 验证IP格式是否有效
+	
+	// 其次使用X-Forwarded-For的第一个IP
+	if xForwardedFor != "" {
+		ips := strings.Split(xForwardedFor, ",")
+		if len(ips) > 0 {
+			ip := strings.TrimSpace(ips[0])
 			if net.ParseIP(ip) != nil {
+				log.Printf("[getRealIP] 使用X-Forwarded-For的第一个IP: %s", ip)
 				return ip
 			}
 		}
 	}
-
-	// 如果上面的头都没有，使用RemoteAddr
-	ip, _, err := net.SplitHostPort(c.Request.RemoteAddr)
-	if err != nil {
-		return c.Request.RemoteAddr
+	
+	// 使用Gin的ClientIP()方法
+	if clientIP != "" && clientIP != "::1" && clientIP != "127.0.0.1" {
+		log.Printf("[getRealIP] 使用ClientIP(): %s", clientIP)
+		return clientIP
 	}
+	
+	// 最后使用RemoteAddr
+	ip, _, err := net.SplitHostPort(remoteAddr)
+	if err != nil {
+		log.Printf("[getRealIP] 使用完整RemoteAddr: %s", remoteAddr)
+		return remoteAddr
+	}
+	log.Printf("[getRealIP] 使用解析后的RemoteAddr: %s", ip)
 	return ip
 }
 

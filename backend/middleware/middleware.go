@@ -1,6 +1,8 @@
 package middleware
 
 import (
+	"log"
+	"net"
 	"net/http"
 	"strings"
 
@@ -34,20 +36,36 @@ func Cors() gin.HandlerFunc {
 // TrustProxyHeaders 信任代理头中间件
 func TrustProxyHeaders() gin.HandlerFunc {
 	return func(c *gin.Context) {
-		// 设置信任所有代理
-		// 这样Gin的c.ClientIP()会正确处理X-Forwarded-For和X-Real-IP头
-		// 注意：在生产环境中，应该只信任特定的代理
+		// 记录原始请求信息，用于调试
+		originalRemoteAddr := c.Request.RemoteAddr
+		xRealIP := c.Request.Header.Get("X-Real-IP")
+		xForwardedFor := c.Request.Header.Get("X-Forwarded-For")
+		
+		log.Printf("[IP调试] 原始RemoteAddr: %s, X-Real-IP: %s, X-Forwarded-For: %s", 
+			originalRemoteAddr, xRealIP, xForwardedFor)
 		
 		// 直接修改请求的RemoteAddr为X-Real-IP的值（如果存在）
-		if realIP := c.Request.Header.Get("X-Real-IP"); realIP != "" {
-			c.Request.RemoteAddr = realIP
-		} else if forwardedFor := c.Request.Header.Get("X-Forwarded-For"); forwardedFor != "" {
+		if xRealIP != "" {
+			// 确保IP格式正确
+			if net.ParseIP(xRealIP) != nil {
+				c.Request.RemoteAddr = xRealIP
+				log.Printf("[IP调试] 使用X-Real-IP设置RemoteAddr: %s", xRealIP)
+			}
+		} else if xForwardedFor != "" {
 			// 如果有多个IP，取第一个（最原始的客户端IP）
-			ips := strings.Split(forwardedFor, ",")
+			ips := strings.Split(xForwardedFor, ",")
 			if len(ips) > 0 {
-				c.Request.RemoteAddr = strings.TrimSpace(ips[0])
+				ip := strings.TrimSpace(ips[0])
+				// 确保IP格式正确
+				if net.ParseIP(ip) != nil {
+					c.Request.RemoteAddr = ip
+					log.Printf("[IP调试] 使用X-Forwarded-For设置RemoteAddr: %s", ip)
+				}
 			}
 		}
+		
+		// 记录最终使用的IP
+		log.Printf("[IP调试] 最终RemoteAddr: %s, ClientIP(): %s", c.Request.RemoteAddr, c.ClientIP())
 		
 		c.Next()
 	}
